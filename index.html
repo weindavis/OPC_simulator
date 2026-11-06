@@ -1,0 +1,1607 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OPC Lab — Metal1 시뮬레이터 (Kernel & History)</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f3f5f9;--paper:#FDFDFF;--ink:#1E2433;
+  --muted:#505A74;--line:#E2E6F0;--blue:#1751D0;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.65 system-ui,-apple-system,"Malgun Gothic",sans-serif;
+}
+header{
+  padding:20px 28px;background:var(--paper);
+  border-bottom:1px solid var(--line);
+}
+header h1{margin:0;font-size:25px;letter-spacing:-1px}
+header p{margin:3px 0 0;color:var(--muted);font-size:12px}
+main{max-width:1500px;margin:auto;padding:24px}
+h2{font-size:17px;margin:0 0 12px}
+h3{font-size:12px;margin:0;padding:10px 12px}
+p{margin:8px 0}
+button,input,select,textarea{font:inherit}
+button,select,input[type=checkbox],input[type=range]{cursor:pointer}
+button,select,input[type=number]{
+  padding:8px 10px;border:1px solid var(--line);
+  border-radius:6px;background:var(--paper);color:var(--ink);
+}
+button:hover:not(:disabled){background:#E8EEFB}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,
+select:focus-visible,textarea:focus-visible{
+  outline:3px solid #8FAEEA;outline-offset:2px;
+}
+.primary{background:var(--blue);color:white;border-color:var(--blue)}
+.primary:hover:not(:disabled){background:#1241A6}
+.card{
+  background:var(--paper);border:1px solid var(--line);
+  border-radius:10px;overflow:hidden;
+}
+.setup{
+  display:grid;grid-template-columns:260px minmax(0,1fr);
+  gap:20px;margin-bottom:18px;
+}
+.target-card{padding:14px}
+.target-card canvas{max-width:300px;margin:auto}
+.controls{padding:18px}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.row+.row{margin-top:12px}
+label{font-size:12px}
+small,.hint{color:var(--muted);font-size:11px}
+.hint{line-height:1.8}
+.setting{
+  display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));
+  gap:16px;margin:16px 0;
+}
+.setting label{display:block}
+.setting input[type=range]{width:100%;accent-color:var(--blue)}
+output{float:right;font-family:ui-monospace,monospace}
+.toolbar{
+  padding:12px;margin:14px 0;
+  display:flex;gap:9px;align-items:center;flex-wrap:wrap;
+}
+.toolbar input[type=number]{width:56px;padding:5px}
+.toolbar button.active{background:#E8EEFB;border-color:#8FAEEA}
+.boards{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.board{min-width:0}
+canvas.plot{
+  display:block;width:100%;height:auto;aspect-ratio:1;
+  background:#1E2433;image-rendering:pixelated;
+}
+canvas.edit{touch-action:none;cursor:crosshair}
+.board footer{padding:7px 10px;font-size:10px;color:var(--muted)}
+.section-head{
+  display:flex;justify-content:space-between;
+  align-items:center;gap:12px;margin:20px 0 10px;
+}
+.section-head h2{margin:0;font-size:15px}
+.legend{
+  display:flex;align-items:center;gap:13px;
+  flex-wrap:wrap;margin:14px 0;font-size:11px;color:var(--muted);
+}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.swatch{width:9px;height:9px;display:inline-block}
+.scale{display:flex;width:160px;height:10px}
+.scale i{flex:1}
+.metrics{
+  display:grid;grid-template-columns:repeat(3,1fr);margin-top:18px;
+}
+.visual-panel{padding:16px;margin:16px 0}
+.visual-panel canvas{display:block;width:100%;height:auto}
+.visual-meta{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin-top:8px}
+.chart-panel{padding:16px;margin-top:16px}
+.chart-panel canvas{display:block;width:100%;height:auto}
+.chart-note{font-size:11px;color:var(--muted);margin-top:8px}
+.stat{padding:17px}
+.stat+.stat{border-left:1px solid var(--line)}
+.stat small{display:block}
+.value{font:600 22px/1.7 ui-monospace,monospace}
+.status{padding:14px 16px;margin:14px 0;font-size:12px}
+progress{width:100%;height:7px;accent-color:var(--blue)}
+.exports{padding:14px;display:flex;gap:8px;flex-wrap:wrap}
+details{padding:15px 17px;margin-top:14px}
+summary{cursor:pointer;font-weight:600;font-size:13px}
+details p,details li{font-size:12px;color:var(--muted)}
+textarea{
+  display:block;width:100%;min-height:110px;margin:10px 0;
+  padding:10px;border:1px solid var(--line);border-radius:6px;
+  font:12px/1.65 ui-monospace,monospace;
+}
+.table-wrap{overflow:auto;max-height:320px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{
+  border-bottom:1px solid var(--line);padding:8px 10px;
+  text-align:right;white-space:nowrap;
+}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500}
+.warning{
+  border-left:3px solid #A87F00;padding:10px 12px;
+  background:#faf8f1;font-size:12px;color:var(--muted);
+}
+#tooltip{
+  position:fixed;pointer-events:none;z-index:20;
+  padding:7px 10px;border:1px solid var(--line);
+  border-radius:6px;background:white;font-size:11px;
+  max-width:270px;
+}
+[hidden]{display:none!important}
+.footer{margin:20px 0;color:var(--muted);font-size:11px}
+@media(max-width:1050px){
+  .boards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .setting{grid-template-columns:1fr}
+}
+@media(max-width:650px){
+  main{padding:15px}
+  header{padding:17px}
+  .setup{grid-template-columns:1fr}
+  .metrics{grid-template-columns:1fr}
+  .stat+.stat{border-left:0;border-top:1px solid var(--line)}
+  .value{font-size:20px}
+  .section-head{align-items:flex-start}
+}
+</style>
+<script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=19691"></script>
+</head>
+<body>
+<header>
+  <h1>OPC Lab / Metal1</h1>
+  <p>Gaussian 노광 근사 · 음성 PR · 목표와 마스크를 분리한 보정 실험</p>
+</header>
+
+<main>
+  <section class="setup">
+    <div class="card target-card">
+      <h2>목표 패턴</h2>
+      <canvas id="target" class="plot edit"
+        width="640" height="640"
+        aria-label="목표 패턴 그리기 영역"></canvas>
+      <p class="hint">좌상단 원점 · x 오른쪽 · y 아래쪽</p>
+    </div>
+
+    <div class="card controls">
+      <h2 id="layoutTitle">INV_X1 / Metal1</h2>
+      <fieldset id="settings">
+        <div class="row">
+          <label>
+            레이아웃
+            <select id="layout">
+              <option value="INV_X1">INV_X1</option>
+              <option value="NAND2_X4">NAND2_X4</option>
+              <option value="custom">자유 그리기</option>
+            </select>
+          </label>
+          <button id="reload">패턴 다시 불러오기</button>
+          <label><input type="checkbox" id="lock" checked> 목표 잠금</label>
+        </div>
+
+        <div class="setting">
+          <label>
+            Gaussian σ
+            <output id="sigmaText"></output>
+            <input id="sigma" type="range"
+              min="1.4" max="10.5" step="0.175" value="3.85">
+          </label>
+          <label>
+            현상 임계값 θ
+            <output id="thetaText"></output>
+            <input id="theta" type="range"
+              min="0.3" max="0.7" step="0.01" value="0.5">
+          </label>
+          <label>
+            반복 횟수
+            <select id="steps">
+              <option value="40">40회</option>
+              <option value="80" selected>80회</option>
+              <option value="160">160회</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="row">
+          <label>
+            자동 보정 시작점
+            <select id="startFrom">
+              <option value="target">목표와 같은 마스크</option>
+              <option value="work">현재 편집 마스크</option>
+            </select>
+          </label>
+          <button id="both">두 레이아웃 실행</button>
+        </div>
+
+        <p class="hint" id="dimension"></p>
+        <p class="hint">
+          160 × 160 계산 격자 / 1 px = 1.75 nm /
+          전체 계산 영역 280 × 280 nm<br>
+          레이아웃 단위 λ = 3.5 nm이며 광학 파장을 뜻하지 않습니다.
+          nm 표시는 설계 길이 환산이며 광학 공정 보정값이 아닙니다.
+        </p>
+        <p class="hint">
+          음성 PR 가정: I ≥ θ에서 PR 잔류(1),
+          I &lt; θ에서 제거(0). 마스크 1은 투과, 0은 차광입니다.
+        </p>
+      </fieldset>
+
+      <div class="row" style="margin-top:16px">
+        <button id="run" class="primary">▶ RUN OPC</button>
+        <span class="hint">계산은 브라우저에서 실행됩니다.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card visual-panel">
+    <div class="section-head" style="margin:0 0 8px">
+      <h2>Gaussian Kernel / 2D Spatial Distribution</h2>
+      <small>현재 σ 설정을 실시간 반영</small>
+    </div>
+    <canvas id="kernelPlot" width="900" height="620" aria-label="2차원 Gaussian 커널 Heatmap"></canvas>
+    <div class="visual-meta" id="kernelInfo"></div>
+    <p class="chart-note">색상은 커널의 최대 가중치에 대한 상대 크기를 나타냅니다. 실제 계산에는 정규화된 1차원 커널의 외적을 사용하며, 전체 2차원 가중치 합은 1입니다.</p>
+  </section>
+
+  <div class="card toolbar" id="toolbar">
+    <label>
+      편집 대상
+      <select id="editMode">
+        <option value="mask">보정 후 마스크</option>
+        <option value="target">목표 패턴</option>
+      </select>
+    </label>
+    <button data-tool="rect" class="active">사각형</button>
+    <button data-tool="brush">브러시</button>
+    <button data-tool="erase">지우개</button>
+    <label>
+      두께 <input id="brush" type="number" min="1" max="30" value="6"> px
+    </label>
+    <label><input type="checkbox" id="snap" checked> 3.5 nm 스냅</label>
+    <button id="undo">되돌리기</button>
+    <button id="clear">편집 영역 지우기</button>
+    <button id="manual">편집 마스크 재계산</button>
+  </div>
+
+  <div class="section-head">
+    <h2>01 / OPC 적용 전</h2>
+    <small>마스크 = 목표 패턴</small>
+  </div>
+  <div class="boards">
+    <section class="card board">
+      <h3>보정 전 마스크</h3>
+      <canvas id="bMask" class="plot" width="640" height="640"></canvas>
+      <footer>주황 = 투과</footer>
+    </section>
+    <section class="card board">
+      <h3>2차원 노광 분포</h3>
+      <canvas id="bHeat" class="plot" width="640" height="640"></canvas>
+      <footer>상대 광량 0–1 / 흰 선 = 현상 경계</footer>
+    </section>
+    <section class="card board">
+      <h3>현상 후 잔류 PR</h3>
+      <canvas id="bPrint" class="plot" width="640" height="640"></canvas>
+      <footer>청록 = 남는 PR</footer>
+    </section>
+    <section class="card board">
+      <h3>목표와 중첩 / 오차</h3>
+      <canvas id="bDiff" class="plot" width="640" height="640"></canvas>
+      <footer>일치 / 부족 / 초과</footer>
+    </section>
+  </div>
+
+  <div class="section-head">
+    <h2>02 / OPC 적용 후</h2>
+    <small id="afterState">RUN 또는 편집 마스크 재계산</small>
+  </div>
+  <div class="boards">
+    <section class="card board">
+      <h3>보정 후 마스크 / 편집 가능</h3>
+      <canvas id="aMask" class="plot edit" width="640" height="640"></canvas>
+      <footer>목표를 고정한 상태로 수정할 수 있습니다.</footer>
+    </section>
+    <section class="card board">
+      <h3>2차원 노광 분포</h3>
+      <canvas id="aHeat" class="plot" width="640" height="640"></canvas>
+      <footer>보정 전과 동일한 색상 범위</footer>
+    </section>
+    <section class="card board">
+      <h3>현상 후 잔류 PR</h3>
+      <canvas id="aPrint" class="plot" width="640" height="640"></canvas>
+      <footer>동일한 θ로 판정</footer>
+    </section>
+    <section class="card board">
+      <h3>목표와 중첩 / 오차</h3>
+      <canvas id="aDiff" class="plot" width="640" height="640"></canvas>
+      <footer>전체 계산 영역에서 평가</footer>
+    </section>
+  </div>
+
+  <div class="legend">
+    <span>광량 0</span>
+    <span class="scale">
+      <i style="background:#E8EEFB"></i>
+      <i style="background:#C2D3F4"></i>
+      <i style="background:#8FAEEA"></i>
+      <i style="background:#4E7FDD"></i>
+      <i style="background:#1751D0"></i>
+      <i style="background:#1241A6"></i>
+      <i style="background:#0D317D"></i>
+    </span>
+    <span>1</span>
+    <span><i class="swatch" style="background:#343C52"></i>일치</span>
+    <span><i class="swatch" style="background:#E05A62"></i>부족</span>
+    <span><i class="swatch" style="background:#4D86E8"></i>초과</span>
+    <label><input id="outline" type="checkbox" checked> 목표 윤곽</label>
+  </div>
+
+  <div class="card metrics">
+    <div class="stat">
+      <small>불일치 면적 · 전 → 후 / nm²</small>
+      <div class="value" id="area">—</div>
+    </div>
+    <div class="stat">
+      <small>IoU · 전 → 후 / %</small>
+      <div class="value" id="iou">—</div>
+    </div>
+    <div class="stat">
+      <small>오차 개선율 / %</small>
+      <div class="value" id="gain">—</div>
+    </div>
+  </div>
+
+  <section class="card chart-panel">
+    <div class="section-head" style="margin:0 0 8px">
+      <h2>OPC Iteration History / Minimum Mismatch Pixels</h2>
+      <small id="historySource">실험 실행 후 반복 이력이 표시됩니다.</small>
+    </div>
+    <canvas id="historyChart" width="1200" height="440" aria-label="반복 횟수에 따른 최소 불일치 픽셀 수 그래프"></canvas>
+    <p class="chart-note">x축은 최적화 반복 횟수, y축은 해당 반복까지 관측된 최소 불일치 픽셀 수입니다. 4회마다 실제 임계값 기반 현상 결과를 평가하며, 초기 후보(0회)도 포함합니다.</p>
+  </section>
+
+  <div class="card status">
+    <div id="status" role="status" aria-live="polite">READY</div>
+    <progress id="progress" value="0" max="100"></progress>
+  </div>
+
+  <div class="card exports">
+    <button id="png">비교 그림 PNG</button>
+    <button id="maskPng">마스크 PNG</button>
+    <button id="svg">마스크 SVG</button>
+    <button id="json">실험 JSON</button>
+    <button id="csv">지표·반복 이력 CSV</button>
+    <button id="csvImportButton">CSV 이력 불러오기</button>
+    <input type="file" id="csvImportFile" accept=".csv,text/csv" hidden>
+    <button id="chartPng">반복 그래프 PNG</button>
+    <button id="allJson">전체 실험 JSON</button>
+    <button id="importButton">JSON 불러오기</button>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+  </div>
+
+  <details class="card" open>
+    <summary>정량 수치와 반복 이력</summary>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>지표</th><th>보정 전</th><th>보정 후</th></tr></thead>
+        <tbody id="metricTable"></tbody>
+      </table>
+    </div>
+    <div class="table-wrap" style="margin-top:12px">
+      <table>
+        <thead>
+          <tr><th>반복</th><th>후보 오차 px</th><th>최소 오차 px</th><th>최선 IoU %</th></tr>
+        </thead>
+        <tbody id="traceTable"></tbody>
+      </table>
+    </div>
+  </details>
+
+  <details class="card">
+    <summary>보관한 실험</summary>
+    <p>현재 탭 안에서 보관됩니다. 탭을 닫기 전 JSON으로 저장하세요.</p>
+    <div id="savedList" class="row"></div>
+  </details>
+
+  <details class="card">
+    <summary>목표 형상 좌표 확인·수정</summary>
+    <p>
+      직사각형 좌표 [xmin,ymin,xmax,ymax] nm의 합집합입니다.
+      좌상단 원점이며 좌표는 1.75 nm 배수여야 합니다.
+      좌표 적용 시 사용자 정의 목표로 구분됩니다.
+    </p>
+    <textarea id="geometry" spellcheck="false"></textarea>
+    <button id="applyGeometry">좌표 적용</button>
+  </details>
+
+  <details class="card">
+    <summary>모델과 지표 정의 / 한계</summary>
+    <p>
+      커널은 정규화된 Gaussian입니다.
+      반경 r=ceil(3σ/Δx), Δx=1.75 nm이며,
+      2차원 커널은 두 1차원 커널의 외적입니다.
+      계산 영역 밖은 차광 0으로 처리하고 경계에서 재정규화하지 않습니다.
+    </p>
+    <p>
+      I=G*M, P=1[I≥θ]. 노광량은 상대값이며 dose 배율은 1입니다.
+      단순 광량 합산 모델로 위상 간섭, 부분 결맞음,
+      실제 레지스트 화학이나 식각은 계산하지 않습니다.
+    </p>
+    <p>
+      목표 Metal1 형상과 잔류 음성 PR 형상을 직접 대응시킨
+      교육용 비교이며 실제 배선 제작 공정을 구현한 것은 아닙니다.
+    </p>
+    <p>
+      자동 보정은 픽셀 기반 역설계 근사입니다.
+      S=sigmoid(18(I−θ))에 대해
+      L=Σ(S−T)²+0.0005Σ(m−T)²+bΣm(1−m),
+      b=0.004×반복/전체반복을 Adam으로 최소화합니다.
+      학습률 0.065, β₁=0.9, β₂=0.999, ε=10⁻⁸입니다.
+    </p>
+    <p>
+      4회마다 및 마지막에 m≥0.5로 이진화한 마스크를 평가합니다.
+      원본 마스크도 후보에 포함하고 불일치 픽셀 수가 가장 작은 것을
+      저장합니다. 동률이면 변경 픽셀이 적은 것을 선택합니다.
+    </p>
+    <ul>
+      <li>불일치 픽셀: Σ1[P≠T]</li>
+      <li>불일치 면적: 불일치 픽셀×1.75² nm²</li>
+      <li>IoU: 교집합/합집합. 둘 다 비면 1.</li>
+      <li>개선율: 100×(보정 전 오차−보정 후 오차)/보정 전 오차</li>
+      <li>보정 전 오차가 0이면 개선율은 N/A입니다.</li>
+      <li>수동 편집은 오차가 증가할 수도 있습니다.</li>
+    </ul>
+    <p>
+      프리셋은 제공 PDF 그림 3을 판독해 재구성했습니다.
+      INV_X1은 63×189 nm, NAND2_X4는 157.5×189 nm,
+      공통 선폭은 10.5 nm입니다.
+      내부 좌표는 원본 CAD가 아니므로 제공 그림과 대조해야 합니다.
+    </p>
+    <p>
+      계산 오차 0은 이 격자와 모델에서의 결과일 뿐,
+      실제 공정 정확도나 연속 경계의 완전한 일치를 뜻하지 않습니다.
+    </p>
+  </details>
+
+  <details class="card">
+    <summary>AI 활용·문제 해결·검증 메모</summary>
+    <p>직접 수행한 내용만 기록하세요. JSON에 함께 저장됩니다.</p>
+    <textarea id="notes" placeholder="사용 AI / 요구사항 / 문제 / 수정 / 검증 / 남은 한계"></textarea>
+  </details>
+
+  <p class="warning">
+    교육용 프로토타입입니다. 제조용 마스크로 사용하지 마세요.
+    논문에는 지정된 두 레이아웃을 직접 실행·검증한 결과를 사용하세요.
+  </p>
+  <p class="footer">
+    별도 설치나 서버 업로드 없이 동작합니다.
+    다운로드 파일과 과제 제출용 공개 앱 URL은 다릅니다.
+  </p>
+</main>
+<div id="tooltip" hidden></div>
+
+<script>
+"use strict";
+
+const $=id=>document.getElementById(id);
+const N=160, DX=1.75, LEN=N*N;
+const LEFT=52, TOP=22, SIDE=560, SCALE=SIDE/N;
+
+const LAYOUTS={
+  INV_X1:{
+    name:"INV_X1",width:63,height:189,
+    rects:[
+      [0,0,63,10.5],
+      [10.5,10.5,21,73.5],
+      [42,63,52.5,126],
+      [10.5,115.5,21,178.5],
+      [0,178.5,63,189]
+    ]
+  },
+  NAND2_X4:{
+    name:"NAND2_X4",width:157.5,height:189,
+    rects:[
+      [0,0,157.5,10.5],
+      [10.5,10.5,21,42],
+      [73.5,10.5,84,42],
+      [136.5,10.5,147,42],
+      [42,21,52.5,84],
+      [105,21,115.5,84],
+      [42,73.5,115.5,84],
+      [73.5,84,84,168],
+      [10.5,105,21,178.5],
+      [42,105,52.5,168],
+      [105,105,115.5,168],
+      [136.5,105,147,178.5],
+      [0,178.5,157.5,189]
+    ]
+  }
+};
+
+let target=new Uint8Array(LEN),work=new Uint8Array(LEN);
+let before=null,record=null,preview=null,meta=null;
+let busy=false,stop=false,drawing=null,tool="rect",undoStack=[],saved=[];
+let historyOverride=null;
+
+const IDS=[
+  "target","bMask","bHeat","bPrint","bDiff",
+  "aMask","aHeat","aPrint","aDiff"
+];
+const RGB=[
+  [232,238,251],[194,211,244],[143,174,234],
+  [78,127,221],[23,81,208],[18,65,166],[13,49,125]
+];
+const tile=document.createElement("canvas");
+tile.width=tile.height=N;
+const tileContext=tile.getContext("2d");
+const format=(x,d=2)=>Number(x).toLocaleString("ko-KR",{
+  minimumFractionDigits:d,maximumFractionDigits:d
+});
+const clone=o=>JSON.parse(JSON.stringify(o));
+const tell=s=>$("status").textContent=s;
+
+function params(){
+  return {
+    sigma:Number($("sigma").value)/DX,
+    threshold:Number($("theta").value),
+    iterations:Number($("steps").value)
+  };
+}
+
+function kernel(sigma){
+  const radius=Math.ceil(3*sigma);
+  const w=new Float32Array(radius*2+1);
+  let sum=0;
+  for(let j=-radius;j<=radius;j++){
+    w[j+radius]=Math.exp(-j*j/(2*sigma*sigma));
+    sum+=w[j+radius];
+  }
+  for(let i=0;i<w.length;i++)w[i]/=sum;
+  return {radius,w};
+}
+
+function blur(source,k){
+  const tmp=new Float32Array(LEN),out=new Float32Array(LEN);
+  const r=k.radius,w=k.w;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    let sum=0;
+    for(let j=Math.max(-r,-x);j<=Math.min(r,N-1-x);j++){
+      sum+=source[y*N+x+j]*w[j+r];
+    }
+    tmp[y*N+x]=sum;
+  }
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    let sum=0;
+    for(let j=Math.max(-r,-y);j<=Math.min(r,N-1-y);j++){
+      sum+=tmp[(y+j)*N+x]*w[j+r];
+    }
+    out[y*N+x]=sum;
+  }
+  return out;
+}
+
+function assess(mask,t,k,theta){
+  const intensity=blur(mask,k),printed=new Uint8Array(LEN);
+  let error=0,intersection=0,union=0,missing=0,excess=0,changes=0;
+  for(let i=0;i<LEN;i++){
+    const p=intensity[i]>=theta?1:0;
+    printed[i]=p;
+    if(p!==t[i]){
+      error++;
+      if(t[i])missing++;else excess++;
+    }
+    if(p&&t[i])intersection++;
+    if(p||t[i])union++;
+    if(mask[i]!==t[i])changes++;
+  }
+  return {
+    mask:new Uint8Array(mask),intensity,printed,
+    error,intersection,union,missing,excess,changes,
+    iou:union?intersection/union:1
+  };
+}
+
+function raster(g){
+  const out=new Uint8Array(LEN);
+  const ox=Math.floor((N-g.width/DX)/2);
+  const oy=Math.floor((N-g.height/DX)/2);
+  for(const r of g.rects){
+    const [x0,y0,x1,y1]=r.map(v=>Math.round(v/DX));
+    for(let y=oy+y0;y<oy+y1;y++){
+      for(let x=ox+x0;x<ox+x1;x++){
+        if(x>=0&&x<N&&y>=0&&y<N)out[y*N+x]=1;
+      }
+    }
+  }
+  return out;
+}
+
+function recalcBefore(){
+  const p=params();
+  before=assess(target,target,kernel(p.sigma),p.threshold);
+}
+
+function invalidate(message,resetMask=false){
+  record=null;preview=null;
+  if(resetMask)work=new Uint8Array(target);
+  recalcBefore();
+  $("progress").value=0;
+  if(message)tell(message);
+  render();
+}
+
+function geometry(){
+  if(meta.rects&&meta.rects.length){
+    return {
+      name:meta.name,width:meta.width,
+      height:meta.height,rects:meta.rects
+    };
+  }
+  const rects=[];
+  for(let y=0;y<N;y++){
+    let x=0;
+    while(x<N){
+      if(!target[y*N+x]){x++;continue;}
+      const start=x;
+      while(x<N&&target[y*N+x])x++;
+      rects.push([start*DX,y*DX,x*DX,(y+1)*DX]);
+    }
+  }
+  return {name:meta.name,width:280,height:280,rects};
+}
+
+function labels(){
+  const p=params();
+  $("sigmaText").textContent=format(p.sigma*DX,3)+" nm";
+  $("thetaText").textContent=p.threshold.toFixed(2);
+  $("layoutTitle").textContent=meta.name+" / Metal1";
+  $("dimension").textContent=
+    "レイアウト".replace("レイアウト","레이아웃")+
+    ` ${meta.width} × ${meta.height} nm · `+
+    (meta.source==="figure3"
+      ?"공통 선폭 10.5 nm · 제공 그림 재구성"
+      :"사용자 정의 형상");
+  $("geometry").value=JSON.stringify(geometry(),null,2);
+}
+
+function loadLayout(key){
+  if(busy||drawing)return;
+  if(key==="custom"){
+    meta={
+      name:"사용자 패턴",width:280,height:280,
+      rects:[],source:"custom"
+    };
+    target=new Uint8Array(LEN);
+    $("lock").checked=false;
+    $("editMode").value="target";
+  }else{
+    meta={...clone(LAYOUTS[key]),source:"figure3"};
+    target=raster(meta);
+    $("lock").checked=true;
+    $("editMode").value="mask";
+  }
+  $("layout").value=key;
+  undoStack=[];
+  labels();
+  invalidate("READY · 목표 패턴을 준비했습니다.",true);
+}
+
+function background(g){
+  g.fillStyle="#1E2433";
+  g.fillRect(0,0,640,640);
+  g.strokeStyle="#343C52";g.lineWidth=1;
+  g.beginPath();
+  for(let i=0;i<=N;i+=20){
+    g.moveTo(LEFT+i*SCALE,TOP);
+    g.lineTo(LEFT+i*SCALE,TOP+SIDE);
+    g.moveTo(LEFT,TOP+i*SCALE);
+    g.lineTo(LEFT+SIDE,TOP+i*SCALE);
+  }
+  g.stroke();
+}
+
+function axes(g){
+  g.fillStyle="#CDD3E0";
+  g.font="13px ui-monospace,monospace";
+  for(let i=0;i<=N;i+=40){
+    g.textAlign="center";
+    g.fillText(String(i*DX),LEFT+i*SCALE,TOP+SIDE+22);
+    g.textAlign="right";
+    g.fillText(String(i*DX),LEFT-8,TOP+i*SCALE+5);
+  }
+  g.textAlign="center";
+  g.fillText("x (nm) →",LEFT+SIDE/2,TOP+SIDE+43);
+  g.save();
+  g.translate(14,TOP+SIDE/2);
+  g.rotate(-Math.PI/2);
+  g.fillText("y (nm) ↓",0,0);
+  g.restore();
+}
+
+function binary(g,data,color){
+  g.fillStyle=color;
+  for(let y=0;y<N;y++){
+    let x=0;
+    while(x<N){
+      if(!data[y*N+x]){x++;continue;}
+      const start=x;
+      while(x<N&&data[y*N+x])x++;
+      g.fillRect(
+        LEFT+start*SCALE,TOP+y*SCALE,
+        (x-start)*SCALE,SCALE
+      );
+    }
+  }
+}
+
+function outline(g,data,dashed=false){
+  g.save();
+  g.strokeStyle="#F7F9FC";
+  g.lineWidth=1.3;
+  if(dashed)g.setLineDash([4,3]);
+  g.beginPath();
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(!data[y*N+x])continue;
+    const X=LEFT+x*SCALE,Y=TOP+y*SCALE;
+    if(y===0||!data[(y-1)*N+x]){
+      g.moveTo(X,Y);g.lineTo(X+SCALE,Y);
+    }
+    if(y===N-1||!data[(y+1)*N+x]){
+      g.moveTo(X,Y+SCALE);g.lineTo(X+SCALE,Y+SCALE);
+    }
+    if(x===0||!data[y*N+x-1]){
+      g.moveTo(X,Y);g.lineTo(X,Y+SCALE);
+    }
+    if(x===N-1||!data[y*N+x+1]){
+      g.moveTo(X+SCALE,Y);g.lineTo(X+SCALE,Y+SCALE);
+    }
+  }
+  g.stroke();
+  g.restore();
+}
+
+function heat(g,state){
+  const img=tileContext.createImageData(N,N);
+  for(let i=0;i<LEN;i++){
+    const z=Math.max(0,Math.min(1,state.intensity[i]))*6;
+    const a=Math.floor(z),b=Math.min(6,a+1),f=z-a;
+    for(let c=0;c<3;c++){
+      img.data[4*i+c]=Math.round(RGB[a][c]*(1-f)+RGB[b][c]*f);
+    }
+    img.data[4*i+3]=255;
+  }
+  tileContext.putImageData(img,0,0);
+  g.imageSmoothingEnabled=false;
+  g.drawImage(tile,LEFT,TOP,SIDE,SIDE);
+  outline(g,state.printed);
+}
+
+function difference(g,state){
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    const i=y*N+x,p=state.printed[i],t=target[i];
+    if(!p&&!t)continue;
+    g.fillStyle=p===t?"#343C52":p?"#4D86E8":"#E05A62";
+    g.fillRect(LEFT+x*SCALE,TOP+y*SCALE,SCALE,SCALE);
+  }
+}
+
+function plot(id,kind,data){
+  const g=$(id).getContext("2d");
+  background(g);
+  if(data){
+    if(kind==="heat")heat(g,data);
+    else if(kind==="diff")difference(g,data);
+    else binary(g,data,kind==="target"?"#4D86E8":
+      kind==="mask"?"#D96B2A":"#17A088");
+    if(kind!=="heat"&&kind!=="target"&&$("outline").checked){
+      outline(g,target,true);
+    }
+  }else{
+    g.fillStyle="#CDD3E0";
+    g.font="19px system-ui,sans-serif";
+    g.textAlign="center";
+    g.fillText("계산 후 표시",LEFT+SIDE/2,TOP+SIDE/2);
+  }
+  axes(g);
+}
+
+function updateButtons(){
+  $("settings").disabled=busy||!!drawing;
+  document.querySelectorAll("#toolbar button,#toolbar input,#toolbar select")
+    .forEach(el=>el.disabled=busy);
+  for(const id of ["png","maskPng","svg","json","csv"]){
+    $(id).disabled=busy||!!drawing||!record;
+  }
+  $("chartPng").disabled=busy||!!drawing||(!record&&!historyOverride);
+  $("allJson").disabled=busy||!saved.length;
+  $("importButton").disabled=busy||!!drawing;
+  $("csvImportButton").disabled=busy||!!drawing;
+  $("applyGeometry").disabled=busy||!!drawing;
+  $("geometry").disabled=busy;
+  $("undo").disabled=busy||!undoStack.length;
+  $("run").disabled=!!drawing||(busy&&stop);
+  $("run").textContent=busy?(stop?"중지 중":"■ STOP"):"▶ RUN OPC";
+}
+
+function drawKernel(){
+  const c=$("kernelPlot"),g=c.getContext("2d"),p=params();
+  const k=kernel(p.sigma),n=k.w.length,r=k.radius;
+  const G=Array.from({length:n},(_,y)=>Array.from({length:n},(_,x)=>k.w[y]*k.w[x]));
+  const peak=G[r][r],sum=G.flat().reduce((a,b)=>a+b,0);
+  g.clearRect(0,0,c.width,c.height);
+  g.fillStyle="#1E2433";g.fillRect(0,0,c.width,c.height);
+  const cell=Math.min(34,Math.floor(500/n)),side=cell*n;
+  const ox=Math.round((c.width-side)/2),oy=58;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+    const v=G[y][x]/peak;
+    const z=Math.max(0,Math.min(1,v));
+    const a=[232,238,251],b=[23,81,208];
+    const rgb=a.map((v,i)=>Math.round(v+(b[i]-v)*z));
+    g.fillStyle=`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    g.fillRect(ox+x*cell,oy+y*cell,cell,cell);
+    g.strokeStyle="rgba(30,36,51,.22)";g.strokeRect(ox+x*cell,oy+y*cell,cell,cell);
+  }
+  g.fillStyle="#FDFDFF";g.font="16px system-ui,sans-serif";g.textAlign="center";
+  g.fillText(`2D Gaussian kernel · ${n} × ${n} · radius ${r} px`,c.width/2,30);
+  g.font="12px ui-monospace,monospace";g.fillStyle="#CDD3E0";
+  for(let i=0;i<n;i++){
+    if(n>19&&i%2)continue;
+    g.fillText(String(i-r),ox+(i+.5)*cell,oy+side+20);
+    g.textAlign="right";g.fillText(String(i-r),ox-10,oy+(i+.65)*cell);g.textAlign="center";
+  }
+  g.fillStyle="#CDD3E0";g.font="12px system-ui,sans-serif";
+  g.fillText("x offset (pixel)",c.width/2,oy+side+46);
+  g.save();g.translate(ox-54,oy+side/2);g.rotate(-Math.PI/2);g.fillText("y offset (pixel)",0,0);g.restore();
+  $("kernelInfo").textContent=
+    `σ = ${format(p.sigma*DX,3)} nm (${format(p.sigma,3)} px) · Δx = ${DX} nm · peak = ${peak.toExponential(6)} · ΣG = ${sum.toFixed(8)} · support = ±${r} px`;
+}
+
+function drawHistoryChart(){
+  const c=$("historyChart"),g=c.getContext("2d");
+  const r=preview||record;
+  const trace=historyOverride||(r&&r.trace)||[];
+  const W=c.width,H=c.height,L=90,R=35,T=35,B=72;
+  g.clearRect(0,0,W,H);g.fillStyle="#1E2433";g.fillRect(0,0,W,H);
+  if(!trace.length){
+    g.fillStyle="#CDD3E0";g.font="18px system-ui,sans-serif";g.textAlign="center";
+    g.fillText("OPC 실행 또는 CSV 이력 불러오기 후 그래프가 표시됩니다.",W/2,H/2);
+    $("historySource").textContent="표시할 반복 이력이 없습니다.";return;
+  }
+  const data=trace.filter(v=>Number.isFinite(Number(v.iteration))&&Number.isFinite(Number(v.best)))
+    .map(v=>({x:Number(v.iteration),y:Number(v.best)})).sort((a,b)=>a.x-b.x);
+  if(!data.length)return;
+  const maxX=Math.max(1,...data.map(d=>d.x));
+  const maxY=Math.max(1,...data.map(d=>d.y));
+  const topY=Math.ceil(maxY/5)*5 || 1;
+  const X=x=>L+x/maxX*(W-L-R),Y=y=>H-B-y/topY*(H-T-B);
+  g.strokeStyle="#526079";g.lineWidth=1;g.fillStyle="#CDD3E0";
+  g.font="12px ui-monospace,monospace";
+  for(let i=0;i<=5;i++){
+    const val=topY*i/5,yy=Y(val);
+    g.beginPath();g.moveTo(L,yy);g.lineTo(W-R,yy);g.stroke();
+    g.textAlign="right";g.fillText(String(Math.round(val)),L-12,yy+4);
+  }
+  for(let i=0;i<=5;i++){
+    const val=maxX*i/5,xx=X(val);
+    g.beginPath();g.moveTo(xx,T);g.lineTo(xx,H-B);g.stroke();
+    g.textAlign="center";g.fillText(String(Math.round(val)),xx,H-B+23);
+  }
+  g.strokeStyle="#8FAEEA";g.lineWidth=3;g.beginPath();
+  data.forEach((d,i)=>i?g.lineTo(X(d.x),Y(d.y)):g.moveTo(X(d.x),Y(d.y)));
+  g.stroke();
+  data.forEach(d=>{g.fillStyle="#FDFDFF";g.beginPath();g.arc(X(d.x),Y(d.y),4,0,Math.PI*2);g.fill();});
+  g.fillStyle="#FDFDFF";g.font="14px system-ui,sans-serif";g.textAlign="center";
+  g.fillText("Optimization iteration",(L+W-R)/2,H-18);
+  g.save();g.translate(24,(T+H-B)/2);g.rotate(-Math.PI/2);g.fillText("Minimum mismatch pixels",0,0);g.restore();
+  const last=data[data.length-1];
+  const experimentName=(r&&r.meta&&r.meta.name)||(meta&&meta.name)||"현재 레이아웃";
+  $("historySource").textContent=`${historyOverride?"CSV에서 불러온 이력":experimentName+" 실험 이력"} · ${data.length}개 기록 · 최종 최소 오차 ${last.y} px`;
+}
+
+function render(){
+  const r=preview||record,a=r&&r.after;
+  plot("target","target",target);
+  plot("bMask","mask",target);
+  plot("bHeat","heat",before);
+  plot("bPrint","print",before&&before.printed);
+  plot("bDiff","diff",before);
+  plot("aMask","mask",busy&&a?a.mask:work);
+  plot("aHeat","heat",a);
+  plot("aPrint","print",a&&a.printed);
+  plot("aDiff","diff",a);
+
+  $("area").textContent=
+    format(before.error*DX*DX)+" → "+(a?format(a.error*DX*DX):"—");
+  $("iou").textContent=
+    format(before.iou*100)+" → "+(a?format(a.iou*100):"—");
+  $("gain").textContent=!a?"—":!before.error?"N/A":
+    format(100*(before.error-a.error)/before.error);
+  $("afterState").textContent=
+    r?(busy?"보정 탐색 중":r.method==="manual"?"수동 마스크 평가":"자동 보정 결과")
+      :"아직 계산하지 않았습니다.";
+
+  const rows=[
+    ["불일치 픽셀",before.error,a&&a.error],
+    ["불일치 면적 nm²",format(before.error*DX*DX),a&&format(a.error*DX*DX)],
+    ["IoU %",format(before.iou*100,4),a&&format(a.iou*100,4)],
+    ["부족 픽셀",before.missing,a&&a.missing],
+    ["초과 픽셀",before.excess,a&&a.excess],
+    ["변경 마스크 픽셀",0,a&&a.changes]
+  ];
+  $("metricTable").innerHTML=rows.map(row=>
+    "<tr>"+row.map((v,i)=>
+      `<${i?"td":"th"}>${v===null?"—":v}</${i?"td":"th"}>`
+    ).join("")+"</tr>"
+  ).join("");
+
+  $("traceTable").innerHTML=r&&r.trace.length?r.trace.map(t=>
+    `<tr><td>${t.iteration}</td><td>${t.candidate}</td>`+
+    `<td>${t.best}</td><td>${format(t.iou*100,4)}</td></tr>`
+  ).join(""):'<tr><td colspan="4">실행 후 표시됩니다.</td></tr>';
+  drawKernel();
+  drawHistoryChart();
+  updateButtons();
+}
+
+function remember(r){
+  r.notes=$("notes").value;
+  r.created=new Date().toISOString();
+  saved.push(r);
+  if(saved.length>20)saved.shift();
+  savedButtons();
+}
+
+function savedButtons(){
+  const box=$("savedList");
+  box.replaceChildren();
+  saved.forEach((r,i)=>{
+    const b=document.createElement("button");
+    b.textContent=
+      `${i+1}. ${r.meta.name}: ${r.before.error} → ${r.after.error} px`;
+    b.addEventListener("click",()=>restore(r));
+    box.appendChild(b);
+  });
+}
+
+function restore(r){
+  if(busy||drawing)return;
+  historyOverride=null;
+  meta=clone(r.meta);
+  target=new Uint8Array(r.target);
+  work=new Uint8Array(r.after.mask);
+  record=r;preview=null;before=r.before;undoStack=[];
+  $("sigma").value=r.params.sigma*DX;
+  $("theta").value=r.params.threshold;
+  $("steps").value=r.params.iterations;
+  $("layout").value=meta.source==="figure3"?meta.name:"custom";
+  $("lock").checked=true;
+  $("notes").value=r.notes||"";
+  labels();render();
+  $("progress").value=100;
+  tell("RESTORED · 저장한 실험을 복원했습니다.");
+}
+
+async function run(){
+  if(drawing)return;
+  if(busy){stop=true;updateButtons();return;}
+  if(!target.some(Boolean)){tell("목표 패턴을 먼저 그려주세요.");return;}
+
+  historyOverride=null;
+  const p=params(),k=kernel(p.sigma),t=new Uint8Array(target);
+  const initial=$("startFrom").value==="work"
+    ?new Uint8Array(work):new Uint8Array(t);
+  const m=Float32Array.from(initial);
+  const first=assess(t,t,k,p.threshold);
+  let best=first,bestIteration=0;
+  const warm=assess(initial,t,k,p.threshold);
+  if(warm.error<best.error||
+     (warm.error===best.error&&warm.changes<best.changes)){
+    best=warm;
+  }
+
+  const momentum=new Float32Array(LEN);
+  const variance=new Float32Array(LEN);
+  const source=new Float32Array(LEN);
+  const trace=[{
+    iteration:0,candidate:warm.error,best:best.error,iou:best.iou
+  }];
+  const started=performance.now();
+
+  busy=true;stop=false;before=first;
+  try{
+    for(let it=1;it<=p.iterations;it++){
+      if(stop)break;
+      const intensity=blur(m,k);
+      for(let i=0;i<LEN;i++){
+        const s=1/(1+Math.exp(-18*(intensity[i]-p.threshold)));
+        source[i]=2*(s-t[i])*18*s*(1-s);
+      }
+      const gradient=blur(source,k);
+      const b1=1-Math.pow(.9,it),b2=1-Math.pow(.999,it);
+      for(let i=0;i<LEN;i++){
+        const g=gradient[i]+.001*(m[i]-t[i])
+          +.004*(it/p.iterations)*(1-2*m[i]);
+        momentum[i]=.9*momentum[i]+.1*g;
+        variance[i]=.999*variance[i]+.001*g*g;
+        m[i]=Math.max(0,Math.min(1,m[i]-
+          .065*(momentum[i]/b1)/(Math.sqrt(variance[i]/b2)+1e-8)));
+      }
+
+      if(it%4===0||it===p.iterations){
+        const bin=Uint8Array.from(m,v=>v>=.5?1:0);
+        const candidate=assess(bin,t,k,p.threshold);
+        if(candidate.error<best.error||
+          (candidate.error===best.error&&candidate.changes<best.changes)){
+          best=candidate;bestIteration=it;
+        }
+        trace.push({
+          iteration:it,candidate:candidate.error,
+          best:best.error,iou:best.iou
+        });
+        preview={after:best,trace,method:"auto"};
+        $("progress").value=100*it/p.iterations;
+        tell(`OPTIMIZING · ${meta.name} · ${it}/${p.iterations}회 · 최소 오차 ${best.error} px`);
+        render();
+        await new Promise(resolve=>setTimeout(resolve,0));
+      }
+    }
+
+    if(!stop){
+      record={
+        target:t,initial,meta:clone(meta),params:p,
+        before:first,after:best,trace,bestIteration,
+        method:"auto",elapsed:performance.now()-started
+      };
+      work=new Uint8Array(best.mask);
+      remember(record);
+      $("progress").value=100;
+      tell(`DONE · ${meta.name}: ${first.error} → ${best.error} px`);
+    }else{
+      tell("STOPPED · 중지했습니다. 직전 완료 결과가 있으면 유지합니다.");
+      $("progress").value=record?100:0;
+    }
+  }catch(error){
+    console.error(error);
+    tell("ERROR · "+error.message);
+  }finally{
+    preview=null;busy=false;render();
+  }
+}
+
+async function runBoth(){
+  if(busy||drawing)return;
+  for(const key of ["INV_X1","NAND2_X4"]){
+    loadLayout(key);
+    $("startFrom").value="target";
+    await run();
+    if(stop)break;
+  }
+}
+
+function manual(){
+  if(busy||drawing)return;
+  if(!target.some(Boolean)){tell("목표 패턴이 비어 있습니다.");return;}
+  const p=params(),started=performance.now();
+  recalcBefore();
+  const after=assess(work,target,kernel(p.sigma),p.threshold);
+  record={
+    target:new Uint8Array(target),initial:new Uint8Array(work),
+    meta:clone(meta),params:p,before,after,
+    method:"manual",bestIteration:0,
+    elapsed:performance.now()-started,
+    trace:[{iteration:0,candidate:after.error,best:after.error,iou:after.iou}]
+  };
+  remember(record);
+  $("progress").value=100;
+  tell(`MANUAL · ${before.error} → ${after.error} px`+
+    (after.error>before.error?" · 오차가 증가했습니다.":""));
+  render();
+}
+
+function snapshot(){
+  return {
+    target:new Uint8Array(target),work:new Uint8Array(work),
+    meta:clone(meta)
+  };
+}
+
+function pushUndo(s){
+  undoStack.push(s);
+  if(undoStack.length>30)undoStack.shift();
+}
+
+function point(e,id,snap=true){
+  const box=$(id).getBoundingClientRect();
+  let x=((e.clientX-box.left)/box.width*640-LEFT)/SCALE;
+  let y=((e.clientY-box.top)/box.height*640-TOP)/SCALE;
+  if(x<0||x>N||y<0||y>N)return null;
+  const step=snap&&$("snap").checked?2:1;
+  return {
+    x:Math.max(0,Math.min(N,Math.round(x/step)*step)),
+    y:Math.max(0,Math.min(N,Math.round(y/step)*step))
+  };
+}
+
+function paintStroke(data,a,b){
+  const width=Math.max(1,Math.min(30,Number($("brush").value)||6));
+  const r=width/2;
+  const steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)*2));
+  for(let s=0;s<=steps;s++){
+    const cx=Math.min(N-1,a.x+(b.x-a.x)*s/steps);
+    const cy=Math.min(N-1,a.y+(b.y-a.y)*s/steps);
+    for(let y=Math.max(0,Math.floor(cy-r));y<Math.min(N,Math.ceil(cy+r));y++){
+      for(let x=Math.max(0,Math.floor(cx-r));x<Math.min(N,Math.ceil(cx+r));x++){
+        if((x+.5-cx)**2+(y+.5-cy)**2<=r*r){
+          data[y*N+x]=tool==="erase"?0:1;
+        }
+      }
+    }
+  }
+}
+
+function drawTo(p){
+  const d=drawing;
+  let data=d.kind==="target"?target:work;
+  if(tool==="rect"){
+    data=new Uint8Array(d.before[d.kind]);
+    const x0=Math.min(N-1,Math.min(d.start.x,p.x));
+    const y0=Math.min(N-1,Math.min(d.start.y,p.y));
+    const x1=Math.min(N,Math.max(x0+1,d.start.x,p.x));
+    const y1=Math.min(N,Math.max(y0+1,d.start.y,p.y));
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)data[y*N+x]=1;
+    if(d.kind==="target")target=data;else work=data;
+  }else paintStroke(data,d.last,p);
+  d.last=p;
+  plot(d.id,d.kind==="target"?"target":"mask",data);
+}
+
+function finishDraw(e,cancel=false){
+  if(!drawing||(e&&e.pointerId!==drawing.pointerId))return;
+  const d=drawing;
+  drawing=null;
+  if($(d.id).hasPointerCapture(d.pointerId)){
+    $(d.id).releasePointerCapture(d.pointerId);
+  }
+  if(cancel){
+    target=d.before.target;work=d.before.work;
+    render();return;
+  }
+  const data=d.kind==="target"?target:work;
+  if(!data.some((v,i)=>v!==d.before[d.kind][i])){render();return;}
+  pushUndo(d.before);
+  if(d.kind==="target"){
+    meta={
+      name:"사용자 편집 패턴",source:"custom",
+      width:280,height:280,rects:[]
+    };
+    $("layout").value="custom";
+    labels();
+  }
+  invalidate(
+    d.kind==="target"
+      ?"EDITED · 목표 변경. 마스크를 목표와 같게 재설정했습니다."
+      :"EDITED · 마스크만 변경했습니다. 재계산을 누르세요.",
+    d.kind==="target"
+  );
+}
+
+for(const id of ["target","aMask"]){
+  $(id).addEventListener("pointerdown",e=>{
+    if(busy||drawing||e.button!==0)return;
+    const kind=id==="target"?"target":"work";
+    if((kind==="target")!==($("editMode").value==="target")){
+      tell("편집 대상 선택을 확인하세요.");return;
+    }
+    if(kind==="target"&&$("lock").checked){
+      tell("목표 잠금을 먼저 해제하세요.");return;
+    }
+    const p=point(e,id);
+    if(!p)return;
+    e.preventDefault();
+    drawing={
+      id,kind,pointerId:e.pointerId,
+      start:p,last:p,before:snapshot()
+    };
+    $(id).setPointerCapture(e.pointerId);
+    drawTo(p);updateButtons();
+  });
+  $(id).addEventListener("pointermove",e=>{
+    if(!drawing||drawing.id!==id||drawing.pointerId!==e.pointerId)return;
+    const p=point(e,id);
+    if(p){e.preventDefault();drawTo(p);}
+  });
+  $(id).addEventListener("pointerup",e=>finishDraw(e));
+  $(id).addEventListener("pointercancel",e=>finishDraw(e,true));
+  $(id).addEventListener("lostpointercapture",e=>finishDraw(e,true));
+}
+
+for(const id of IDS){
+  $(id).addEventListener("pointermove",e=>{
+    const box=$(id).getBoundingClientRect();
+    const x=Math.floor(((e.clientX-box.left)/box.width*640-LEFT)/SCALE);
+    const y=Math.floor(((e.clientY-box.top)/box.height*640-TOP)/SCALE);
+    const tip=$("tooltip");
+    if(x<0||y<0||x>=N||y>=N){tip.hidden=true;return;}
+    const i=y*N+x,r=preview||record;
+    const state=id.startsWith("b")?before:r&&r.after;
+    let text=`x=${format(x*DX)}, y=${format(y*DX)} nm · T=${target[i]}`;
+    if(id==="aMask"){
+      text+=` · M=${busy&&state?state.mask[i]:work[i]}`;
+    }else if(state&&id!=="target"){
+      text+=` · I=${state.intensity[i].toFixed(5)} · PR=${state.printed[i]}`;
+    }
+    tip.textContent=text;tip.hidden=false;
+    tip.style.left=Math.max(5,Math.min(e.clientX+10,innerWidth-280))+"px";
+    tip.style.top=Math.max(5,Math.min(e.clientY+14,innerHeight-80))+"px";
+  });
+  $(id).addEventListener("pointerleave",()=>$("tooltip").hidden=true);
+}
+
+function download(blob,name){
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+
+function filename(){
+  return meta.name.replace(/[^a-zA-Z0-9가-힣_-]/g,"_");
+}
+
+function pack(r){
+  const state=s=>({
+    mask:Array.from(s.mask),intensity:Array.from(s.intensity),
+    printed:Array.from(s.printed),error:s.error,iou:s.iou,
+    missing:s.missing,excess:s.excess,changes:s.changes,
+    mismatch_area_nm2:s.error*DX*DX
+  });
+  return {
+    schema:"opc-lab-single-v1",
+    notice:"Educational, uncalibrated; geometry reconstructed from teaching figure.",
+    grid:{width:N,height:N,dx_nm:DX,extent_nm:[280,280]},
+    origin:"top-left; x right, y down; row-major arrays",
+    model:{
+      kernel:"normalized Gaussian intensity convolution",
+      support:"radius=ceil(3*sigma_px)",boundary:"zero padding",
+      dose:1,pr:"negative; I>=threshold remains",
+      phase_interference:false,
+      target_mapping:"remaining PR equals target Metal1 teaching shape"
+    },
+    meta:r.meta,params:r.params,
+    target:Array.from(r.target),initial:Array.from(r.initial),
+    before:state(r.before),after:state(r.after),
+    trace:r.trace,bestIteration:r.bestIteration,
+    method:r.method,elapsed:r.elapsed,created:r.created,
+    notes:r===record?$("notes").value:r.notes||"",
+    optimizer:{
+      name:"Adam",learning_rate:.065,beta1:.9,beta2:.999,
+      epsilon:1e-8,soft_resist_slope:18,
+      objective:"sum(S-T)^2 + .0005 sum(m-T)^2 + b sum m(1-m)",
+      b:".004 * iteration / iterations",
+      binary_cutoff:.5,evaluate_every:4
+    }
+  };
+}
+
+function exportMask(svg=false){
+  if(!record||busy||drawing)return;
+  const m=record.after.mask;
+  if(svg){
+    let path="";
+    for(let y=0;y<N;y++){
+      let x=0;
+      while(x<N){
+        if(!m[y*N+x]){x++;continue;}
+        const a=x;while(x<N&&m[y*N+x])x++;
+        path+=`M${a} ${y}h${x-a}v1h-${x-a}Z`;
+      }
+    }
+    const text=
+      `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" `+
+      `viewBox="0 0 160 160" shape-rendering="crispEdges">`+
+      `<metadata>1px=1.75nm; white=transmit; black=opaque; educational only</metadata>`+
+      `<rect width="160" height="160" fill="black"/>`+
+      `<path fill="white" d="${path}"/></svg>`;
+    download(new Blob([text],{type:"image/svg+xml"}),filename()+"-mask.svg");
+  }else{
+    const c=document.createElement("canvas");
+    c.width=c.height=N;
+    const g=c.getContext("2d"),img=g.createImageData(N,N);
+    for(let i=0;i<LEN;i++){
+      img.data[4*i]=img.data[4*i+1]=img.data[4*i+2]=m[i]*255;
+      img.data[4*i+3]=255;
+    }
+    g.putImageData(img,0,0);
+    c.toBlob(b=>{
+      if(b)download(b,filename()+"-mask.png");
+      else tell("PNG 저장 실패");
+    },"image/png");
+  }
+}
+
+function exportFigure(){
+  if(!record||busy||drawing)return;
+  render();
+  const c=document.createElement("canvas");
+  c.width=2040;c.height=1660;
+  const g=c.getContext("2d"),p=record.params,a=record.after,b=record.before;
+  g.fillStyle="#FDFDFF";g.fillRect(0,0,c.width,c.height);
+  g.fillStyle="#1E2433";g.font="bold 30px system-ui,sans-serif";
+  g.fillText(meta.name+" / OPC comparison",40,48);
+  g.font="19px system-ui,sans-serif";
+  g.fillText(
+    `dx=1.75nm | grid=160x160 | sigma=${format(p.sigma*DX,3)}nm | threshold=${p.threshold}`,
+    40,84
+  );
+  g.fillText("Negative PR | normalized Gaussian intensity sum | same conditions before/after",40,115);
+  g.drawImage($("target"),40,140,340,340);
+  g.fillText(`Mismatch pixels: ${b.error} -> ${a.error}`,430,190);
+  g.fillText(
+    `Mismatch area: ${format(b.error*DX*DX)} -> ${format(a.error*DX*DX)} nm²`,
+    430,232
+  );
+  g.fillText(`IoU: ${format(b.iou*100,4)}% -> ${format(a.iou*100,4)}%`,430,274);
+  g.fillText("Heat: fixed range [0,1], light blue=0, dark blue=1; white=PR boundary",430,322);
+  g.fillText("Overlay: gray=match, red=missing, blue=extra; dashed white=target",430,363);
+  g.fillText("Mask orange=transmit; teal=remaining PR. Teaching geometry reconstruction.",430,404);
+  g.fillText("Educational only. Not calibrated for manufacturing.",430,445);
+  const names=["Mask","Exposure intensity","Remaining PR","Target / PR overlay"];
+  for(let row=0;row<2;row++){
+    const y=555+row*520;
+    g.font="bold 23px system-ui,sans-serif";
+    g.fillText(row?"After OPC":"Before OPC",40,y-15);
+    for(let j=0;j<4;j++){
+      g.font="18px system-ui,sans-serif";
+      g.fillText(names[j],40+j*500,y+13);
+      g.drawImage(
+        $((row?"a":"b")+["Mask","Heat","Print","Diff"][j]),
+        40+j*500,y+28,465,465
+      );
+    }
+  }
+  g.font="15px system-ui,sans-serif";
+  g.fillText("OPC Lab | Entire padded domain evaluated | No manufacturing guarantee",40,1641);
+  c.toBlob(blob=>{
+    if(blob)download(blob,filename()+"-comparison.png");
+    else tell("비교 그림 저장 실패");
+  },"image/png");
+}
+
+function exportCSV(){
+  if(!record||busy||drawing)return;
+  const r=record;
+  const rows=[
+    ["layout","sigma_nm","threshold","dx_nm","before_error_px",
+     "after_error_px","before_area_nm2","after_area_nm2","before_iou","after_iou"],
+    [r.meta.name,r.params.sigma*DX,r.params.threshold,DX,
+     r.before.error,r.after.error,r.before.error*DX*DX,
+     r.after.error*DX*DX,r.before.iou,r.after.iou],
+    [],
+    ["iteration","candidate_error_px","best_error_px","best_iou"],
+    ...r.trace.map(t=>[t.iteration,t.candidate,t.best,t.iou])
+  ];
+  const text="\ufeff"+rows.map(row=>row.map(v=>{
+    let s=String(v);
+    if(typeof v==="string"&&/^[=+@\-\t\r]/.test(s))s="'"+s;
+    return '"'+s.replace(/"/g,'""')+'"';
+  }).join(",")).join("\r\n");
+  download(new Blob([text],{type:"text/csv;charset=utf-8"}),filename()+"-metrics.csv");
+}
+
+function parseCSVLine(line){
+  const out=[];let value="",quoted=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){
+      if(quoted&&line[i+1]==='"'){value+='"';i++;}
+      else quoted=!quoted;
+    }else if(ch===','&&!quoted){out.push(value);value="";}
+    else value+=ch;
+  }
+  out.push(value);return out;
+}
+
+async function importHistoryCSV(file){
+  const raw=(await file.text()).replace(/^\uFEFF/,"");
+  const lines=raw.split(/\r?\n/);
+  const index=lines.findIndex(line=>line.includes("iteration")&&line.includes("best_error_px"));
+  if(index<0)throw Error("iteration 및 best_error_px 열이 있는 OPC 이력 CSV가 아닙니다.");
+  const headers=parseCSVLine(lines[index]).map(x=>x.trim());
+  const ix=headers.indexOf("iteration"),ib=headers.indexOf("best_error_px"),ic=headers.indexOf("candidate_error_px"),ii=headers.indexOf("best_iou");
+  if(ix<0||ib<0)throw Error("필수 열(iteration, best_error_px)이 없습니다.");
+  const data=[];
+  for(const line of lines.slice(index+1)){
+    if(!line.trim())break;
+    const row=parseCSVLine(line),x=Number(row[ix]),best=Number(row[ib]);
+    if(Number.isFinite(x)&&Number.isFinite(best))data.push({
+      iteration:x,best,candidate:ic>=0?Number(row[ic]):best,
+      iou:ii>=0?Number(row[ii]):0
+    });
+  }
+  if(!data.length)throw Error("그래프로 표시할 반복 데이터가 없습니다.");
+  historyOverride=data;render();tell(`CSV HISTORY · ${data.length}개 반복 기록을 그래프로 표시했습니다.`);
+}
+
+function exportChartPNG(){
+  const c=$("historyChart");
+  c.toBlob(blob=>{
+    if(blob)download(blob,filename()+"-iteration-history.png");
+    else tell("그래프 PNG 저장에 실패했습니다.");
+  },"image/png");
+}
+
+function unpack(o){
+  if(!o||o.schema!=="opc-lab-single-v1"||
+    !o.grid||o.grid.width!==N||o.grid.height!==N||o.grid.dx_nm!==DX){
+    throw Error("지원하는 실험 JSON이 아닙니다.");
+  }
+  const valid=a=>Array.isArray(a)&&a.length===LEN&&a.every(v=>v===0||v===1);
+  if(!valid(o.target)||!o.after||!valid(o.after.mask)){
+    throw Error("입력 배열이 올바르지 않습니다.");
+  }
+  const p=o.params;
+  if(!p||!Number.isFinite(p.sigma)||p.sigma<.8-1e-8||p.sigma>6+1e-8||
+    !Number.isFinite(p.threshold)||p.threshold<.3||p.threshold>.7||
+    ![40,80,160].includes(p.iterations)){
+    throw Error("시뮬레이션 조건 범위가 올바르지 않습니다.");
+  }
+  if(!o.meta||typeof o.meta.name!=="string"||o.meta.name.length>100){
+    throw Error("레이아웃 정보가 올바르지 않습니다.");
+  }
+  const t=Uint8Array.from(o.target),m=Uint8Array.from(o.after.mask),k=kernel(p.sigma);
+  let safeMeta={
+    name:o.meta.name,width:280,height:280,source:"imported",rects:[]
+  };
+  if(o.meta.source==="figure3"&&LAYOUTS[o.meta.name]){
+    const ref=raster(LAYOUTS[o.meta.name]);
+    if(t.every((v,i)=>v===ref[i])){
+      safeMeta={...clone(LAYOUTS[o.meta.name]),source:"figure3"};
+    }
+  }
+  const trace=Array.isArray(o.trace)?o.trace.filter(t=>
+    t&&["iteration","candidate","best","iou"].every(key=>
+      typeof t[key]==="number"&&Number.isFinite(t[key]))
+  ).slice(0,1000):[];
+  return {
+    target:t,initial:valid(o.initial)?Uint8Array.from(o.initial):t,
+    meta:safeMeta,params:p,before:assess(t,t,k,p.threshold),
+    after:assess(m,t,k,p.threshold),
+    method:o.method==="manual"?"manual":"auto",
+    bestIteration:Number.isInteger(o.bestIteration)?o.bestIteration:0,
+    trace,elapsed:Number.isFinite(o.elapsed)?o.elapsed:0,
+    notes:typeof o.notes==="string"?o.notes.slice(0,50000):"",
+    created:typeof o.created==="string"?o.created:""
+  };
+}
+
+$("layout").addEventListener("change",()=>loadLayout($("layout").value));
+$("reload").addEventListener("click",()=>loadLayout($("layout").value));
+$("run").addEventListener("click",run);
+$("both").addEventListener("click",runBoth);
+$("manual").addEventListener("click",manual);
+$("outline").addEventListener("change",render);
+
+for(const id of ["sigma","theta","steps"]){
+  $(id).addEventListener("input",()=>{
+    if(busy||drawing)return;
+    labels();
+    invalidate("SETTINGS CHANGED · 같은 새 조건으로 다시 보정하세요.");
+  });
+}
+document.querySelectorAll("[data-tool]").forEach(b=>{
+  b.addEventListener("click",()=>{
+    if(busy||drawing)return;
+    tool=b.dataset.tool;
+    document.querySelectorAll("[data-tool]").forEach(x=>
+      x.classList.toggle("active",x===b));
+  });
+});
+
+$("undo").addEventListener("click",()=>{
+  if(busy||drawing||!undoStack.length)return;
+  const s=undoStack.pop();
+  target=s.target;work=s.work;meta=s.meta;
+  $("layout").value=meta.source==="figure3"?meta.name:"custom";
+  labels();invalidate("UNDO · 편집을 되돌렸습니다.");
+});
+
+$("clear").addEventListener("click",()=>{
+  if(busy||drawing)return;
+  const isTarget=$("editMode").value==="target";
+  if(isTarget&&$("lock").checked){tell("목표 잠금을 해제하세요.");return;}
+  pushUndo(snapshot());
+  if(isTarget){
+    target.fill(0);
+    meta={name:"사용자 패턴",width:280,height:280,source:"custom",rects:[]};
+    $("layout").value="custom";labels();
+  }else work.fill(0);
+  invalidate(isTarget?"목표를 지웠습니다.":"마스크만 지웠습니다.",isTarget);
+});
+
+$("applyGeometry").addEventListener("click",()=>{
+  if(busy||drawing)return;
+  try{
+    const g=JSON.parse($("geometry").value);
+    const onGrid=v=>Number.isFinite(v)&&Math.abs(v/DX-Math.round(v/DX))<1e-7;
+    if(typeof g.name!=="string"||g.name.length>100||
+      !onGrid(g.width)||!onGrid(g.height)||
+      g.width<=0||g.height<=0||g.width>280||g.height>280||
+      !Array.isArray(g.rects)||g.rects.length>25600||
+      !g.rects.every(r=>Array.isArray(r)&&r.length===4&&r.every(onGrid)&&
+        r[0]>=0&&r[1]>=0&&r[2]>r[0]&&r[3]>r[1]&&
+        r[2]<=g.width&&r[3]<=g.height)){
+      throw Error("크기·직사각형 좌표·1.75nm 격자를 확인하세요.");
+    }
+    pushUndo(snapshot());
+    meta={
+      name:g.name,width:g.width,height:g.height,
+      rects:g.rects,source:"custom"
+    };
+    target=raster(meta);
+    $("layout").value="custom";$("lock").checked=true;
+    labels();invalidate("GEOMETRY · 좌표를 적용했습니다.",true);
+  }catch(e){tell("좌표 적용 실패: "+e.message);}
+});
+
+$("png").addEventListener("click",exportFigure);
+$("maskPng").addEventListener("click",()=>exportMask(false));
+$("svg").addEventListener("click",()=>exportMask(true));
+$("csv").addEventListener("click",exportCSV);
+$("chartPng").addEventListener("click",exportChartPNG);
+$("csvImportButton").addEventListener("click",()=>$("csvImportFile").click());
+$("csvImportFile").addEventListener("change",async e=>{
+  const file=e.target.files[0];if(!file)return;
+  try{if(file.size>10*1024*1024)throw Error("CSV 파일은 10MB 이하여야 합니다.");await importHistoryCSV(file);}
+  catch(err){tell("CSV 불러오기 실패: "+err.message);}
+  finally{e.target.value="";}
+});
+$("json").addEventListener("click",()=>{
+  if(record&&!busy&&!drawing){
+    download(new Blob([JSON.stringify(pack(record))],
+      {type:"application/json"}),filename()+"-experiment.json");
+  }
+});
+$("allJson").addEventListener("click",()=>{
+  if(busy||!saved.length)return;
+  download(new Blob([JSON.stringify({
+    schema:"opc-lab-archive-single-v1",experiments:saved.map(pack)
+  })],{type:"application/json"}),"opc-all-experiments.json");
+});
+
+$("importButton").addEventListener("click",()=>$("importFile").click());
+$("importFile").addEventListener("change",async e=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  try{
+    if(file.size>40*1024*1024)throw Error("파일은 40MB 이하여야 합니다.");
+    const o=JSON.parse(await file.text());
+    const items=o.schema==="opc-lab-archive-single-v1"?o.experiments:[o];
+    if(!Array.isArray(items)||!items.length||items.length>20){
+      throw Error("실험 개수는 1~20개여야 합니다.");
+    }
+    const imported=items.map(unpack);
+    saved.push(...imported);saved=saved.slice(-20);
+    savedButtons();restore(imported[imported.length-1]);
+    tell("IMPORTED · 입력 마스크로 노광·현상 결과를 재계산했습니다.");
+  }catch(error){tell("불러오기 실패: "+error.message);}
+  finally{e.target.value="";}
+});
+
+$("notes").addEventListener("input",()=>{
+  if(record)record.notes=$("notes").value;
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&drawing){
+    e.preventDefault();finishDraw(null,true);
+  }
+});
+
+loadLayout("INV_X1");
+</script>
+</body>
+</html>
